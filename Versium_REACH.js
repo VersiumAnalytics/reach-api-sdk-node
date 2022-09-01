@@ -37,7 +37,7 @@ class Reach {
     async append(dataTool, inputData, outputTypes = []) {
         const start = new Date();
         let baseURL = `https://api.versium.com/v2/${dataTool}?`;
-        let urls = Array(inputData.length).fill("");
+        const urls = Array(inputData.length).fill("");
         if (outputTypes.length > 0) {
             outputTypes.forEach(outputType => {
                 baseURL += `output[]=${outputType}&`;
@@ -58,7 +58,7 @@ class Reach {
             throw Error("No input data was entered");
         }
 
-        var retryUrls = { retry: [] };
+        const retryUrls = { retry: [] };
         const batchSize = 3; //max batchSize to avoid running into the rate limit
         let results = await this.#sendHttpRequests(urls, options, batchSize, true, retryUrls)
         if (retryUrls.retry.length > 0) { //retry urls that failed with 429 or 500 status response on the first attempt
@@ -115,7 +115,13 @@ class Reach {
             });       
             if (this.verbose) {
                 if (curReq == urls.length && (curReq % batchSize != 0)) { //happens at the end of the last batch
-                    console.log(`requests ${curReq - batchSize + 1}-${curReq - 1} done.`);
+                    if (curReq < batchSize) {
+                        console.log(`requests 0-${curReq - 1} done.`);
+                    } else if ((curReq - 1) % batchSize == 0) {
+                        console.log(`requests ${curReq - batchSize + 2}-${curReq - 1} done.`);
+                    } else {
+                        console.log(`requests ${curReq - batchSize + 1}-${curReq - 1} done.`);
+                    }
                 } else {
                     console.log(`requests ${curReq - batchSize}-${curReq - 1} done.`);
                 }

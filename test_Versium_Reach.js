@@ -39,7 +39,7 @@ async function testMethod() {
     // const testDataTool = 'firmographic';
 
     //hemtobusinessdomain test data
-    // const testInputData = Array(60).fill({ email: "a3bf653e8393decc6cde18e15c4469fc" });
+    // const testInputData = Array(7).fill({ email: "a3bf653e8393decc6cde18e15c4469fc" });
     // const testOutputTypes = [];
     // const testDataTool = 'hemtobusinessdomain';
 
