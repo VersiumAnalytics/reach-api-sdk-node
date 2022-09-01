@@ -7,10 +7,10 @@ class Reach {
 
     /**
      * 
-     * @param string apiKey 
-     * @param boolean verbose 
+     * @param {string} apiKey
+     * @param {boolean} [verbose=false] 
      * set to "true" to log extra debugging/error information
-     * @param int waitTime 
+     * @param {int} [waitTime=3000] 
      * waitTime is the amount of milliseconds that the program execution will pause for before retrying
      * requests that had a 429 or 500 response. The program will not pause if there were none of these responses
      */
@@ -24,14 +24,14 @@ class Reach {
      * This function should be used to effectively query Versium REACH APIs. See our API Documentation for more information
      * https://api-documentation.versium.com/reference/welcome
      *
-     * @param  string dataTool
-     * @param  array  $inputData
+     * @param  {string} dataTool
+     * @param  {array}  inputData
      * inputData is an array of objects where the keys are the headers and the values are the values corresponding to each header
      * ex. inputData = [{first: "someFirstName", last: "someLastName", email: "someEmailAddress"}];
-     * @param  array  outputTypes
+     * @param  {array}  [outputTypes=[]]
      * This array should contain a list of strings where each string is a desired output type. This parameter is optional if the API you are using does not require output types
      * ex. [] or ["email", "phone"]
-     * @return Promise
+     * @return {Promise<Record<string, any>[]>}
      * When the promise resolves, it will be an array of objects
      */
     async append(dataTool, inputData, outputTypes = []) {
