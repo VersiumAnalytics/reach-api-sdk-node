@@ -54,12 +54,9 @@ class ReachAPI {
                 }
                 const inputParamNames = Object.keys(row);
                 const inputParamValues = Object.values(row);
-                console.log('inputParamValues: ' + inputParamValues.toString());
-                console.log('inputParamNames: ' + inputParamNames.toString());
                for (let i = 0; i < inputParamNames.length; i++) {
                 inputParams.append(inputParamNames[i], inputParamValues[i]);
                }
-               console.log('URLSearchParams[' + index + ']: ' + inputParams.toString());
                 const options = {
                     url: `https://api.versium.com/v2/${dataTool}?`,
                     headers: {
