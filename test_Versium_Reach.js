@@ -1,10 +1,10 @@
-import Reach from './Versium_REACH.js';
+import ReachAPI from './Versium_REACH.js';
 
 //USE THIS METHOD FOR TESTING, DELETE IT BEFORE PUBLISHING THE REPO
 //uncomment/change the code block according to the api you want to use, then run the program
 async function testMethod() {
     //c2b test data
-    // const testInputData = Array(135).fill({ first: "Angela", last: "Adams", email: "adamsangela@hotmail.com" });
+    // const testInputData = Array(15).fill({ first: "Angela", last: "Adams", email: "adamsangela@hotmail.com" });
     // const testOutputTypes = [];
     // const testDataTool = 'c2b';
 
@@ -14,7 +14,7 @@ async function testMethod() {
     // const testDataTool = 'iptodomain';
 
     //contact append test data
-    // const testInputData = Array(101).fill({ email: "adamsangela@hotmail.com" });
+    // const testInputData = Array(5).fill({ email: "adamsangela@hotmail.com" });
     // const testOutputTypes = ["address", "phone"];
     // const testDataTool = 'contact';
 
@@ -43,7 +43,7 @@ async function testMethod() {
     // const testOutputTypes = [];
     // const testDataTool = 'hemtobusinessdomain';
 
-    const reachUser = new Reach('apiKeyHere', true);
+    const reachUser = new ReachAPI('apiKeyHere', true);
     const responses = await reachUser.append(testDataTool, testInputData, testOutputTypes);
 }
 testMethod();

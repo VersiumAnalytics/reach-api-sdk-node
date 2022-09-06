@@ -1,6 +1,6 @@
 import axios from "axios";
 
-class Reach {
+class ReachAPI {
     #apiKey;
     verbose;
     waitTime;
@@ -10,7 +10,7 @@ class Reach {
      * @param {string} apiKey
      * @param {boolean} [verbose=false] 
      * set to "true" to log extra debugging/error information
-     * @param {int} [waitTime=3000] 
+     * @param {number} [waitTime=3000] 
      * waitTime is the amount of milliseconds that the program execution will pause for before retrying
      * requests that had a 429 or 500 response. The program will not pause if there were none of these responses
      */
@@ -25,48 +25,65 @@ class Reach {
      * https://api-documentation.versium.com/reference/welcome
      *
      * @param  {string} dataTool
-     * @param  {array}  inputData
+     * @param  {Record<string, any>[]}  inputData
      * inputData is an array of objects where the keys are the headers and the values are the values corresponding to each header
      * ex. inputData = [{first: "someFirstName", last: "someLastName", email: "someEmailAddress"}];
-     * @param  {array}  [outputTypes=[]]
+     * @param  {string[]}  [outputTypes=[]]
      * This array should contain a list of strings where each string is a desired output type. This parameter is optional if the API you are using does not require output types
      * ex. [] or ["email", "phone"]
      * @return {Promise<Record<string, any>[]>}
      * When the promise resolves, it will be an array of objects
      */
     async append(dataTool, inputData, outputTypes = []) {
-        const start = new Date();
-        let baseURL = `https://api.versium.com/v2/${dataTool}?`;
-        const urls = Array(inputData.length).fill("");
+        const start = Date.now();
+        const axiosRequests = Array(inputData.length).fill("");
+        const outputParams = outputTypes.length > 0 ? new URLSearchParams() : null;
         if (outputTypes.length > 0) {
             outputTypes.forEach(outputType => {
-                baseURL += `output[]=${outputType}&`;
+                outputParams.append("output[]", `${outputType}`);
             });
-        }
-        const options = {
-            headers: {
-                "Accept": "application/json",
-                "x-versium-api-key": this.#apiKey,
-            }
-        };
-        if (inputData.length > 0) {
-            inputData.forEach((row, index) => {
-                const inputParams = new URLSearchParams(row).toString();
-                urls[index] = baseURL + inputParams;
-            });
-        } else {
-            throw Error("No input data was entered");
         }
 
-        const retryUrls = { retry: [] };
+        if (inputData.length > 0) {
+            inputData.forEach((row, index) => {
+                const inputParams = new URLSearchParams();
+                if (outputParams) {
+                    outputParams.forEach((value, key) => {
+                        inputParams.append(key, value);
+                    });  
+                }
+                const inputParamNames = Object.keys(row);
+                const inputParamValues = Object.values(row);
+                console.log('inputParamValues: ' + inputParamValues.toString());
+                console.log('inputParamNames: ' + inputParamNames.toString());
+               for (let i = 0; i < inputParamNames.length; i++) {
+                inputParams.append(inputParamNames[i], inputParamValues[i]);
+               }
+               console.log('URLSearchParams[' + index + ']: ' + inputParams.toString());
+                const options = {
+                    url: `https://api.versium.com/v2/${dataTool}?`,
+                    headers: {
+                        "Accept": "application/json",
+                        "x-versium-api-key": this.#apiKey,
+                    },
+                    params: inputParams
+                };
+                
+                axiosRequests[index] = options;
+            });
+        } else {
+            throw new Error("No input data was entered");
+        }
+
         const batchSize = 3; //max batchSize to avoid running into the rate limit
-        let results = await this.#sendHttpRequests(urls, options, batchSize, true, retryUrls)
-        if (retryUrls.retry.length > 0) { //retry urls that failed with 429 or 500 status response on the first attempt
+        let [results, retryRequests] = await this.#sendHttpRequests({axiosRequests, batchSize, firstAttempt: true});
+        if (retryRequests.length > 0) { //retry urls that failed with 429 or 500 status response on the first attempt
             await this.#shortSleep(this.waitTime);
-            results = results.concat(await this.#sendHttpRequests(retryUrls.retry, options, batchSize, false));
+            const retryResults = (await this.#sendHttpRequests({retryRequests, batchSize, firstAttempt: false})).results;
+            results = results.concat(retryResults);
         }
         
-        const end = new Date();
+        const end = Date.now();
         if (this.verbose) {
             console.log(JSON.stringify(results));
             console.log("Total Results Returned: " + results.length);
@@ -76,20 +93,23 @@ class Reach {
         return results;
     }
 
-    async #sendHttpRequests(urls, options, batchSize, firstAttempt, retryUrls = null) {
+    async #sendHttpRequests({axiosRequests, batchSize, firstAttempt}) {
+    // async #sendHttpRequests(urls, options, batchSize, firstAttempt, retryUrls = null) {
         let curReq = 0;
         let httpErr429Count = 0;
         let httpErr500Count = 0;
         let results = [];
-        while (curReq < urls.length) {
-            const end = urls.length < curReq + batchSize ? urls.length : curReq + batchSize;
-            const concurrentReq = new Array();
+        let retryRequests = [];
+        while (curReq < axiosRequests.length) {
+            const end = axiosRequests.length < curReq + batchSize ? axiosRequests.length : curReq + batchSize;
+            const concurrentReq = [];
             for (let index = curReq; index < end; index++) {
-                concurrentReq.push(axios.get(urls[curReq], options)
-                .then((response) => response.data.versium.results)
-                .catch((err) => {
+                try {
+                concurrentReq.push(await axios(axiosRequests[curReq]));
+                concurrentReq[concurrentReq.length - 1] = concurrentReq[concurrentReq.length - 1].data.versium.results;
+                } catch (err) {
                     if (firstAttempt && (err.response.status == 429 || err.response.status == 500)) {
-                        retryUrls.retry.push(urls[curReq]);
+                        retryRequests.push(axiosRequests[curReq]);
                         if (err.response.status == 429) {
                             httpErr429Count++;
                         } else if (err.response.status == 500) {
@@ -99,7 +119,7 @@ class Reach {
                     if (this.verbose) {
                         console.log(err);
                     }
-                }));
+                }
                 if (this.verbose) {
                     if (firstAttempt) {
                         console.log(`sending request ${curReq}...`);
@@ -110,11 +130,9 @@ class Reach {
                 curReq++;
             }
             const batchResp = await Promise.all(concurrentReq);
-            batchResp.forEach((resp) => {
-                results = [...results, resp];
-            });       
+            results = [...results, ...batchResp];       
             if (this.verbose) {
-                if (curReq == urls.length && (curReq % batchSize != 0)) { //happens at the end of the last batch
+                if (curReq == axiosRequests.length && (curReq % batchSize != 0)) { //happens at the end of the last batch
                     if (curReq < batchSize) {
                         console.log(`requests 0-${curReq - 1} done.`);
                     } else if ((curReq - 1) % batchSize == 0) {
@@ -137,11 +155,11 @@ class Reach {
                 console.log("There were " + httpErr500Count + " requests with a 500 http status code");
             }
         } else if (!firstAttempt && this.verbose) {
-            console.log(`There were ${urls.length ? urls.length : 0} requests that were retried`);
+            console.log(`There were ${axiosRequests.length ? axiosRequests.length : 0} requests that were retried`);
             console.log(`There were ${results.length} requests that retried successfully`);
         }
 
-        return results;
+        return [results, retryRequests];
     }
 
     //sleeps the function execution temporarily
@@ -150,4 +168,4 @@ class Reach {
     }
 }
 
-export default Reach;
+export default ReachAPI;
