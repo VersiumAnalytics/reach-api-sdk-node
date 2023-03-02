@@ -7,7 +7,8 @@ A simplified TypeScript-based interface for accessing [Versium Reach APIs](https
 npm install @versium/reach-api-sdk-node
 ```
 NOTE: As of this writing, the package has not yet been published to NPM.
-You may also grab the dist/index.js file and use it in your project.
+
+You may also grab the dist/index.js file and use it in your project. In this case you will need to install the runtime dependencies manually, currently the only dependency is `node-fetch`.
 
 ## Usage
 1. Import the ReachClient class:
@@ -59,4 +60,4 @@ You may also grab the dist/index.js file and use it in your project.
 - You must have a provisioned API key for this function to work. If you are unsure where to find your API key, look at our [API key documentation](https://api-documentation.versium.com/docs/find-your-api-key)
 
 ## Contributing
-For information on building and testing the library, see CONTRIBUTING.md
+For information on building and testing the library, see [CONTRIBUTING.md](CONTRIBUTING.md)
