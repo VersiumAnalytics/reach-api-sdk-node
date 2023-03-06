@@ -6,9 +6,10 @@ A simplified TypeScript-based interface for accessing [Versium Reach APIs](https
 ```shell
 npm install @versium/reach-api-sdk-node
 ```
-NOTE: As of this writing, the package has not yet been published to NPM.
 
-You may also grab the dist/index.js file and use it in your project. In this case you will need to install the runtime dependencies manually, currently the only dependency is `node-fetch`.
+Supports Node.js v16+.
+
+NOTE: This package is an ESM-only module - you are not able to import it with `require()`. See the [Node.js documentation](https://nodejs.org/api/esm.html#introduction) for more information on using ES modules.
 
 ## Usage
 1. Import the ReachClient class:
