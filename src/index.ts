@@ -26,7 +26,7 @@ type DefaultAPIInput = Record<string, string | number>;
 
 type ReachAppendResponse<
   TOutput = Record<string, string>,
-  TInput = DefaultAPIInput
+  TInput = DefaultAPIInput,
 > = {
   versium: {
     version: "2.0";
@@ -53,7 +53,7 @@ type BaseAPIResponse<TInput = DefaultAPIInput> = {
 
 type AppendAPIResponse<
   TInput = DefaultAPIInput,
-  TOutput = Record<string, string>
+  TOutput = Record<string, string>,
 > = BaseAPIResponse<TInput> & {
   body: ReachAppendResponse<TInput, TOutput>;
   bodyRaw: string;
@@ -67,7 +67,7 @@ type AppendAPIErrorResponse = AppendAPIResponse & {
 
 type ListgenAPIResponse<
   TInput = Record<string, string | string[]>,
-  TOutput = ReachListgenResponseRecord
+  TOutput = ReachListgenResponseRecord,
 > = BaseAPIResponse<TInput> & {
   getRecords: () => AsyncGenerator<TOutput>;
 };
@@ -80,17 +80,20 @@ type ReachClientOptions = {
 export default class ReachClient {
   private readonly apiKey: string;
   private readonly logger: undefined | ((...msgs: any[]) => void);
+  private lastAppendChunkStartTime: number = 0;
 
   public version = 2; // API version
   public maxRetries = 3;
   public queriesPerSecond: number;
-  public timeout = 10000; // timeout for append queries, in milliseconds
-  public streamTimeout = 300000; // timeout for listgen queries, in milliseconds
+  public rateLimitPadTime: number = 100; // time to pad the rate limit timer, in milliseconds
+  public timeout = 10000; // timeout for append queries, in milliseconds (set to Infinity for no timeout)
+  public streamTimeout = 300000; // timeout for listgen queries, in milliseconds (set to Infinity for no timeout)
   public waitTime = 2000; // time to wait to retry failed requests, in milliseconds
+  public verbose = false;
 
   constructor(
     apiKey: string,
-    { loggingFunction, queriesPerSecond = 20 }: ReachClientOptions = {}
+    { loggingFunction, queriesPerSecond = 20 }: ReachClientOptions = {},
   ) {
     this.apiKey = apiKey;
     this.logger = loggingFunction;
@@ -107,7 +110,7 @@ export default class ReachClient {
   public async *append(
     dataTool: AppendTool,
     inputData: Array<Record<string, any>>,
-    outputTypes: string[] = []
+    outputTypes: string[] = [],
   ) {
     if (!inputData?.length) {
       this.log("ReachClient.append: No input data was given.");
@@ -117,14 +120,41 @@ export default class ReachClient {
 
     const inputChunks = chunkArray(inputData, this.queriesPerSecond);
 
+    const timeSinceLastAppendChunkStart =
+      Date.now() - this.lastAppendChunkStartTime;
+    if (timeSinceLastAppendChunkStart < 1000 + this.rateLimitPadTime) {
+      const waitTime =
+        1000 + this.rateLimitPadTime - timeSinceLastAppendChunkStart;
+      this.verboseLog(
+        `Time since last append complete: ${timeSinceLastAppendChunkStart}ms\n`,
+        `Waiting ${waitTime}ms before starting...`,
+      );
+      await waitTimer(waitTime);
+    }
+
     for (let i = 0; i < inputChunks.length; i += 1) {
       const inputChunk = inputChunks[i];
+
+      let startTime = 0;
+      if (this.verbose) {
+        startTime = Date.now();
+      }
+
+      this.verboseLog(`Processing chunk ${i + 1} of ${inputChunks.length}...`);
+      this.lastAppendChunkStartTime = Date.now();
       yield await this.processAppendRequests({
         inputChunk,
         dataTool,
         outputTypes,
         noTimer: i === inputChunks.length - 1,
       });
+
+      if (this.verbose) {
+        const elapsed = Date.now() - startTime;
+        this.verboseLog(
+          `Chunk ${i + 1} of ${inputChunks.length} processed in ${elapsed}ms`,
+        );
+      }
     }
   }
 
@@ -138,7 +168,7 @@ export default class ReachClient {
   public async listgen(
     dataTool: ListgenTool,
     inputs: Record<string, string | string[]>,
-    outputTypes: ListgenOutputTypes
+    outputTypes: ListgenOutputTypes,
   ): Promise<ListgenAPIResponse> {
     const url = this.constructAPIURL(dataTool, outputTypes, inputs);
     const response = await fetchWithTimeout(url, {
@@ -171,6 +201,12 @@ export default class ReachClient {
     }
   }
 
+  protected verboseLog(...msgs: any[]) {
+    if (this.verbose) {
+      this.log(...msgs);
+    }
+  }
+
   private async processAppendRequests({
     inputChunk,
     dataTool,
@@ -195,16 +231,25 @@ export default class ReachClient {
           const lastTry = tries === this.maxRetries - 1;
           try {
             response = await fetchWithTimeout(
-              this.constructAPIURL(dataTool, outputTypes, inputs),
+              this.constructAPIURL(dataTool, outputTypes, {
+                ...inputs,
+                ...(this.timeout === Infinity
+                  ? {}
+                  : {
+                      // Signal to the API that we want the request to complete before our timeout setting.
+                      // The API expects this value in seconds, not milliseconds.
+                      rcfg_max_time: Math.max((this.timeout - 200) / 1000, 0.1),
+                    }),
+              }),
               {
                 headers,
                 timeout: this.timeout,
-              }
+              },
             );
 
             if (response.status === 401) {
               throw new UnauthorizedError(
-                "ReachClient received 401 unauthorized from the server. Check your API key."
+                "ReachClient received 401 unauthorized from the server. Check your API key.",
               );
             }
 
@@ -214,7 +259,7 @@ export default class ReachClient {
             this.log(
               lastTry
                 ? `Request failed (${response.status}), no retries remaining.`
-                : `Request failed (${response.status}), retrying after ${this.waitTime}ms...`
+                : `Request failed (${response.status}), retrying after ${this.waitTime}ms...`,
             );
           } catch (e) {
             if (e instanceof UnauthorizedError) {
@@ -234,7 +279,7 @@ export default class ReachClient {
                 } as AppendAPIErrorResponse;
               }
               this.log(
-                `Request timed out, retrying after ${this.waitTime}ms...`
+                `Request timed out, retrying after ${this.waitTime}ms...`,
               );
             } else {
               if (lastTry) {
@@ -253,7 +298,7 @@ export default class ReachClient {
               this.log(
                 `Request error:\n`,
                 e,
-                `\nRetrying in ${this.waitTime}ms...`
+                `\nRetrying in ${this.waitTime}ms...`,
               );
             }
           }
@@ -264,7 +309,7 @@ export default class ReachClient {
 
         invariant(response!);
         return this.parseAppendResponse(response, inputs);
-      })()
+      })(),
     );
 
     if (noTimer) {
@@ -272,7 +317,7 @@ export default class ReachClient {
     }
 
     const [_waitTimer, ...results] = await Promise.all([
-      waitTimer(1000),
+      waitTimer(1000 + this.rateLimitPadTime),
       ...requests,
     ]);
 
@@ -281,7 +326,7 @@ export default class ReachClient {
 
   private async parseAppendResponse(
     response: Response,
-    inputs: Record<string, any>
+    inputs: Record<string, any>,
   ): Promise<AppendAPIResponse> {
     const bodyRaw = await response.text();
     let body;
@@ -303,10 +348,12 @@ export default class ReachClient {
   private constructAPIURL(
     dataTool: string,
     outputTypes: string[],
-    inputs: Record<string, any>
+    inputs: Record<string, any>,
   ) {
     const url = new URL(
-      `https://api.versium.com/v${this.version}/${encodeURIComponent(dataTool)}`
+      `https://api.versium.com/v${this.version}/${encodeURIComponent(
+        dataTool,
+      )}`,
     );
 
     Object.entries(inputs).forEach(([key, value]) => {
@@ -317,7 +364,7 @@ export default class ReachClient {
     });
 
     outputTypes.forEach((output) =>
-      url.searchParams.append("output[]", output)
+      url.searchParams.append("output[]", output),
     );
 
     return url.toString();

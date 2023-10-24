@@ -39,12 +39,15 @@ type ReachClientOptions = {
 export default class ReachClient {
     private readonly apiKey;
     private readonly logger;
+    private lastAppendChunkStartTime;
     version: number;
     maxRetries: number;
     queriesPerSecond: number;
+    rateLimitPadTime: number;
     timeout: number;
     streamTimeout: number;
     waitTime: number;
+    verbose: boolean;
     constructor(apiKey: string, { loggingFunction, queriesPerSecond }?: ReachClientOptions);
     /**
      * Method to query Versium REACH Append APIs.
@@ -63,6 +66,7 @@ export default class ReachClient {
      */
     listgen(dataTool: ListgenTool, inputs: Record<string, string | string[]>, outputTypes: ListgenOutputTypes): Promise<ListgenAPIResponse>;
     protected log(...msgs: any[]): void;
+    protected verboseLog(...msgs: any[]): void;
     private processAppendRequests;
     private parseAppendResponse;
     private constructAPIURL;

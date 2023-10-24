@@ -2,11 +2,14 @@ import { AbortError, Headers } from "node-fetch";
 import { chunkArray, fetchWithTimeout, invariant, streamChunksToLines, UnauthorizedError, waitTimer, } from "./lib.js";
 export default class ReachClient {
     constructor(apiKey, { loggingFunction, queriesPerSecond = 20 } = {}) {
+        this.lastAppendChunkStartTime = 0;
         this.version = 2; // API version
         this.maxRetries = 3;
-        this.timeout = 10000; // timeout for append queries, in milliseconds
-        this.streamTimeout = 300000; // timeout for listgen queries, in milliseconds
+        this.rateLimitPadTime = 100; // time to pad the rate limit timer, in milliseconds
+        this.timeout = 10000; // timeout for append queries, in milliseconds (set to Infinity for no timeout)
+        this.streamTimeout = 300000; // timeout for listgen queries, in milliseconds (set to Infinity for no timeout)
         this.waitTime = 2000; // time to wait to retry failed requests, in milliseconds
+        this.verbose = false;
         this.apiKey = apiKey;
         this.logger = loggingFunction;
         this.queriesPerSecond = queriesPerSecond;
@@ -25,14 +28,30 @@ export default class ReachClient {
             return;
         }
         const inputChunks = chunkArray(inputData, this.queriesPerSecond);
+        const timeSinceLastAppendChunkStart = Date.now() - this.lastAppendChunkStartTime;
+        if (timeSinceLastAppendChunkStart < 1000 + this.rateLimitPadTime) {
+            const waitTime = 1000 + this.rateLimitPadTime - timeSinceLastAppendChunkStart;
+            this.verboseLog(`Time since last append complete: ${timeSinceLastAppendChunkStart}ms\n`, `Waiting ${waitTime}ms before starting...`);
+            await waitTimer(waitTime);
+        }
         for (let i = 0; i < inputChunks.length; i += 1) {
             const inputChunk = inputChunks[i];
+            let startTime = 0;
+            if (this.verbose) {
+                startTime = Date.now();
+            }
+            this.verboseLog(`Processing chunk ${i + 1} of ${inputChunks.length}...`);
+            this.lastAppendChunkStartTime = Date.now();
             yield await this.processAppendRequests({
                 inputChunk,
                 dataTool,
                 outputTypes,
                 noTimer: i === inputChunks.length - 1,
             });
+            if (this.verbose) {
+                const elapsed = Date.now() - startTime;
+                this.verboseLog(`Chunk ${i + 1} of ${inputChunks.length} processed in ${elapsed}ms`);
+            }
         }
     }
     /**
@@ -70,6 +89,11 @@ export default class ReachClient {
             this.logger(...msgs);
         }
     }
+    verboseLog(...msgs) {
+        if (this.verbose) {
+            this.log(...msgs);
+        }
+    }
     async processAppendRequests({ inputChunk, dataTool, outputTypes = [], noTimer = false, }) {
         const headers = {
             Accept: "application/json",
@@ -81,7 +105,16 @@ export default class ReachClient {
             while (tries < this.maxRetries) {
                 const lastTry = tries === this.maxRetries - 1;
                 try {
-                    response = await fetchWithTimeout(this.constructAPIURL(dataTool, outputTypes, inputs), {
+                    response = await fetchWithTimeout(this.constructAPIURL(dataTool, outputTypes, {
+                        ...inputs,
+                        ...(this.timeout === Infinity
+                            ? {}
+                            : {
+                                // Signal to the API that we want the request to complete before our timeout setting.
+                                // The API expects this value in seconds, not milliseconds.
+                                rcfg_max_time: Math.max((this.timeout - 200) / 1000, 0.1),
+                            }),
+                    }), {
                         headers,
                         timeout: this.timeout,
                     });
@@ -142,7 +175,7 @@ export default class ReachClient {
             return Promise.all(requests);
         }
         const [_waitTimer, ...results] = await Promise.all([
-            waitTimer(1000),
+            waitTimer(1000 + this.rateLimitPadTime),
             ...requests,
         ]);
         return results;
