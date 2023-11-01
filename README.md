@@ -20,7 +20,9 @@ NOTE: This package is an ESM-only module - you are not able to import it with `r
     ```js
     const client = new ReachClient('your-api-key');
     ```
-3. For adding data to a set of inputs, use the `append` method. This method returns an `AsyncGenerator` that yields arrays containing API responses. Check the [API documentation](https://api-documentation.versium.com/docs/the-versium-api-landscape) for which data tools and output types are available.
+3. For adding data to a set of inputs, use the `append` method. Check the [API documentation](https://api-documentation.versium.com/docs/the-versium-api-landscape) for which data tools and output types are available.
+   
+   **IMPORTANT NOTE**: This method returns an [`AsyncGenerator`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AsyncGenerator) that yields arrays containing API responses, you must iterate over the generator to get the response arrays, then iterate over the response arrays to get the results.
     ```js
     const inputs = [
       {
@@ -30,26 +32,29 @@ NOTE: This package is an ESM-only module - you are not able to import it with `r
         city: 'Redmond',
         state: 'WA',
         zip: '98052'
-      }  
+      }
     ];
     
+    // iterate over the AsyncGenerator to get the response arrays, note the 'for await' syntax here
     for await (const results of client.append('contact', inputs, ['email', 'phone'])) {
       // filter out failed queries for processing later
       const failedResults = results.filter(result => !result.success);
       
-      // merge successful matches with inputs
+      // iterate over the response array to get the results
       results.forEach((result, idx) => {
         if (result.success && result.matchFound) {
+          // merge successful matches with inputs
           inputs[idx].appendResults = result.body.versium.results;
         }
       })
     }
     ```
-4. For retrieving a list of records, use the `listgen` method. This function returns a promise that resolves to a response object with a `getRecords` function on it which returns an `AsyncGenerator` for iterating over records from the response stream. The `listgen` method will return as soon as data begins streaming in, and `getRecords` can be used to drain the stream until you have extracted all records from the response. Check the [API documentation](https://api-documentation.versium.com/docs/the-versium-api-landscape) for which data tools and output types are available.
+4. For retrieving a list of records, use the `listgen` method. This function returns a promise that resolves to a response object with a `getRecords` function on it which returns an [`AsyncGenerator`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AsyncGenerator) for iterating over records from the response stream. The `listgen` method will return as soon as data begins streaming in, and `getRecords` can be used to drain the stream until you have extracted all records from the response. Check the [API documentation](https://api-documentation.versium.com/docs/the-versium-api-landscape) for which data tools and output types are available.
    ```js
    const response = await client.listgen('abm', {domain: ['versium.com']}, ['abm_email', 'abm_online_audience']);
    
    if (response.success) {
+       // getRecords returns an AsyncGenerator, so here we use the 'for await' syntax to iterate over the results
        for await (const record of response.getRecords()) {
            console.log({record});
        }
