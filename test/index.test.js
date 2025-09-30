@@ -71,7 +71,7 @@ async function appends(client) {
     for await (const responses of client.append(
       test.dataTool,
       test.inputs,
-      test.outputTypes,
+      test.outputTypes
     )) {
       allResponses.push(...responses);
     }
@@ -84,7 +84,7 @@ async function appends(client) {
     console.log(
       `Test '${test.dataTool}' successful! ${test.inputs.length} queries in ${
         end - start
-      }ms`,
+      }ms`
     );
 
     // console.log(allResponses[0]);
@@ -110,6 +110,6 @@ async function listgen(client) {
   }
 
   console.log(
-    `Test 'abm' successful! ${recCount} records in ${Date.now() - start}ms`,
+    `Test 'abm' successful! ${recCount} records in ${Date.now() - start}ms`
   );
 }
