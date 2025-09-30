@@ -32,6 +32,10 @@ type AppendAPIResponse<TInput = DefaultAPIInput, TOutput = Record<string, string
 type ListgenAPIResponse<TInput = Record<string, string | string[]>, TOutput = ReachListgenResponseRecord> = BaseAPIResponse<TInput> & {
     getRecords: () => AsyncGenerator<TOutput>;
 };
+type AppendOptions = string[] | {
+    outputTypes: string[];
+    additionalParams?: Record<string, any>;
+};
 type ReachClientOptions = {
     loggingFunction?: (...msgs: any[]) => void;
     queriesPerSecond?: number;
@@ -56,7 +60,7 @@ export default class ReachClient {
      * @param inputData
      * @param outputTypes
      */
-    append(dataTool: AppendTool, inputData: Array<Record<string, any>>, outputTypes?: string[]): AsyncGenerator<AppendAPIResponse<DefaultAPIInput, Record<string, string>>[], void, unknown>;
+    append(dataTool: AppendTool, inputData: Array<Record<string, any>>, options?: AppendOptions): AsyncGenerator<AppendAPIResponse<DefaultAPIInput, Record<string, string>>[], void, unknown>;
     /**
      * Method to query Versium REACH Listgen APIs.
      * See API docs for more info: https://api-documentation.versium.com/reference/account-based-list-abm

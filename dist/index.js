@@ -21,7 +21,7 @@ export default class ReachClient {
      * @param inputData
      * @param outputTypes
      */
-    async *append(dataTool, inputData, outputTypes = []) {
+    async *append(dataTool, inputData, options = []) {
         if (!inputData?.length) {
             this.log("ReachClient.append: No input data was given.");
             yield [];
@@ -34,6 +34,16 @@ export default class ReachClient {
             this.verboseLog(`Time since last append complete: ${timeSinceLastAppendChunkStart}ms\n`, `Waiting ${waitTime}ms before starting...`);
             await waitTimer(waitTime);
         }
+        let outputTypes = [];
+        if (Array.isArray(options)) {
+            outputTypes = options;
+        }
+        else {
+            outputTypes = options.outputTypes || [];
+        }
+        const additionalParams = Array.isArray(options)
+            ? {}
+            : options.additionalParams || {};
         for (let i = 0; i < inputChunks.length; i += 1) {
             const inputChunk = inputChunks[i];
             let startTime = 0;
@@ -46,6 +56,7 @@ export default class ReachClient {
                 inputChunk,
                 dataTool,
                 outputTypes,
+                additionalParams,
                 noTimer: i === inputChunks.length - 1,
             });
             if (this.verbose) {
@@ -94,7 +105,7 @@ export default class ReachClient {
             this.log(...msgs);
         }
     }
-    async processAppendRequests({ inputChunk, dataTool, outputTypes = [], noTimer = false, }) {
+    async processAppendRequests({ inputChunk, dataTool, outputTypes = [], additionalParams = {}, noTimer = false, }) {
         const headers = {
             Accept: "application/json",
             "x-versium-api-key": this.apiKey,
@@ -114,6 +125,7 @@ export default class ReachClient {
                                 // The API expects this value in seconds, not milliseconds.
                                 rcfg_max_time: Math.max((this.timeout - 200) / 1000, 0.1),
                             }),
+                        ...additionalParams,
                     }), {
                         headers,
                         timeout: this.timeout,

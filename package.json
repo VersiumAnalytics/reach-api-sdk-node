@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc",
     "start": "tsc -w",
-    "test": "npm run build && node test/index.test.js"
+    "test": "npm run build && node --test"
   },
   "repository": {
     "type": "git",
