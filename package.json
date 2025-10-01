@@ -8,7 +8,8 @@
   "scripts": {
     "build": "tsc",
     "start": "tsc -w",
-    "test": "npm run build && node --test"
+    "test": "npm run build && node --test",
+    "prepublish": "npm run build"
   },
   "repository": {
     "type": "git",
