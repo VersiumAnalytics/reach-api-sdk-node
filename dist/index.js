@@ -117,7 +117,6 @@ export default class ReachClient {
                 const lastTry = tries === this.maxRetries - 1;
                 try {
                     response = await fetchWithTimeout(this.constructAPIURL(dataTool, outputTypes, {
-                        ...inputs,
                         ...(this.timeout === Infinity
                             ? {}
                             : {
@@ -126,6 +125,7 @@ export default class ReachClient {
                                 rcfg_max_time: Math.max((this.timeout - 200) / 1000, 0.1),
                             }),
                         ...additionalParams,
+                        ...inputs,
                     }), {
                         headers,
                         timeout: this.timeout,

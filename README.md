@@ -50,10 +50,13 @@ const inputs = [
 ];
 
 // iterate over the AsyncGenerator to get the response arrays, note the 'for await' syntax here
-for await (const results of client.append("contact", inputs, [
-  "email",
-  "phone",
-])) {
+for await (const results of client.append("contact", inputs, {
+  outputTypes: ["email", "phone"],
+  additionalParams: {
+    // any request-level params supported by Versium APIs
+    cfg_max_emails: 3,
+  },
+})) {
   // filter out failed queries for processing later
   const failedResults = results.filter((result) => !result.success);
 
@@ -67,8 +70,21 @@ for await (const results of client.append("contact", inputs, [
 }
 ```
 
+#### Legacy (deprecated): pass an array of output types
+
+Prior to v1.1.0 the third argument was an array of output types. This form still works for backward compatibility but is deprecated—please migrate to the options object shown above.
+
+```js
+for await (const results of client.append("contact", inputs, [
+  "email",
+  "phone",
+])) {
+  // ...
+}
+```
+
 > [!NOTE]
-> You can also include non-contact parameters inside the input objects if needed, e.g. `const inputs = [{first: "john", last: "doe", ...rest, cfg_max_emails: 3}]`
+> You can also include parameters inside individual input records when you need per-record settings, e.g. `const inputs = [{ first: "john", last: "doe", cfg_max_emails: 1 }, { first: "jane", last: "doe", cfg_max_emails: 5 }]`. If a parameter exists both in an input record and in `additionalParams`, the value from the input record takes precedence.
 
 ### List Generation
 
