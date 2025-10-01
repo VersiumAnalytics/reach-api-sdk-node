@@ -93,7 +93,8 @@ test("constructAPIURL includes additional params and array inputs", () => {
   assert.equal(parsed.searchParams.get("email"), "person@example.com");
   assert.equal(parsed.searchParams.get("match_type"), "hhld");
   assert.deepEqual(parsed.searchParams.getAll("rcfg_exclude_domains[]"), [
-    "aol.com,yahoo.com",
+    "aol.com",
+    "yahoo.com",
   ]);
   assert.deepEqual(parsed.searchParams.getAll("output[]"), ["email"]);
 });

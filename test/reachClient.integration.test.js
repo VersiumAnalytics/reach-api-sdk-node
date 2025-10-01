@@ -62,7 +62,7 @@ test(
 );
 
 test(
-  "listgen streams records with fake data against live API",
+  "listgen streams records against live API",
   {
     skip: skipMessage,
     timeout: 90_000,

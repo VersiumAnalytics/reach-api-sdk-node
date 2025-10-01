@@ -376,9 +376,12 @@ export default class ReachClient {
 
     Object.entries(inputs).forEach(([key, value]) => {
       if (Array.isArray(value)) {
-        key = key + "[]";
+        value.forEach((v) => {
+          url.searchParams.append(key + "[]", String(v));
+        });
+      } else if (value !== undefined && value !== null) {
+        url.searchParams.append(key, value);
       }
-      url.searchParams.append(key, value);
     });
 
     outputTypes.forEach((output) =>

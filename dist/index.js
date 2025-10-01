@@ -213,9 +213,13 @@ export default class ReachClient {
         const url = new URL(`https://api.versium.com/v${this.version}/${encodeURIComponent(dataTool)}`);
         Object.entries(inputs).forEach(([key, value]) => {
             if (Array.isArray(value)) {
-                key = key + "[]";
+                value.forEach((v) => {
+                    url.searchParams.append(key + "[]", String(v));
+                });
             }
-            url.searchParams.append(key, value);
+            else if (value !== undefined && value !== null) {
+                url.searchParams.append(key, value);
+            }
         });
         outputTypes.forEach((output) => url.searchParams.append("output[]", output));
         return url.toString();
