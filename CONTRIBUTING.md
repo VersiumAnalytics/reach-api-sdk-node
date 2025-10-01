@@ -1,16 +1,43 @@
 # Working on the SDK Itself
 
 ## Getting Started
+
 1. Clone the repo
 2. Run `npm install`
 
 ## Building
+
 During development, you can run `npm start` to start the TypeScript compiler in watch mode.
 
 ## Testing
-There is currently no formal testing framework in place. We simply run a regular JS file with Node that contains assertions using the [built-in Node.js assert library](https://nodejs.org/api/assert.html).
-You'll need to provide an API key as an environment variable named `REACH_KEY` in order to run the tests:
 
-```shell
-REACH_KEY="your-api-key" npm test
-```
+We use Node's built-in test runner ([node:test](https://nodejs.org/api/test.html)) with the Node assert library.
+
+- Unit tests run without network access or credentials.
+- Integration tests exercise the live Versium REACH API and require an API key.
+
+How to run tests:
+
+- Run all tests (builds TS first):
+
+  ```sh
+  npm test
+  ```
+
+  - If `REACH_KEY` is not set, integration tests are automatically skipped.
+  - To include integration tests, provide your API key:
+    ```sh
+    REACH_KEY="your-api-key" npm test
+    ```
+
+- Run a single test file (optional):
+  ```sh
+  npm run build && node --test test/reachClient.unit.test.js
+  # or
+  npm run build && node --test test/reachClient.integration.test.js
+  ```
+
+Notes:
+
+- The test script compiles TypeScript to `dist/` before running tests because tests import the built output.
+- You'll need Node.js 18+ (or newer) to use the built-in test runner.
